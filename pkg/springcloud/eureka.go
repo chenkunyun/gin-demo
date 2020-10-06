@@ -3,7 +3,7 @@ package springcloud
 import (
 	"compress/gzip"
 	"context"
-	"encoding/json"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 )
+
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type ApplicationType map[string][]ApplicationInstanceDto
 

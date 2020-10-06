@@ -3,9 +3,9 @@ package controller
 import (
 	"compress/gzip"
 	"context"
-	"encoding/json"
 	"gin-demo/pkg/springcloud"
 	"github.com/gin-gonic/gin"
+	jsoniter "github.com/json-iterator/go"
 	"io"
 	"io/ioutil"
 	"net"
@@ -15,6 +15,8 @@ import (
 	"time"
 )
 
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
+
 type GatewayController struct {
 	ribbon     *springcloud.Ribbon
 	httpClient *http.Client
@@ -23,9 +25,9 @@ type GatewayController struct {
 type gatewayResponse struct {
 	Code    int64       `json:"code"`
 	Msg     string      `json:"msg"`
-	SubCode int64       `json:"sub_code"`
-	SubMsg  string      `json:"sub_msg"`
-	Data    interface{} `json:"data"`
+	SubCode int64       `json:"sub_code,omitempty"`
+	SubMsg  string      `json:"sub_msg,omitempty"`
+	Data    interface{} `json:"data,omitempty"`
 }
 
 type upstreamServiceResponse struct {
@@ -80,7 +82,7 @@ func (controller *GatewayController) Handle(r *gin.Engine) {
 			instance, exist := controller.ribbon.GetApplicationInstance(appId)
 			if !exist {
 				c.JSON(200, &gatewayResponse{
-					Code: 404,
+					Code: -1,
 					Msg:  "service not found",
 				})
 				return
@@ -113,56 +115,60 @@ func (controller *GatewayController) Handle(r *gin.Engine) {
 				return
 			}
 
-			if response.StatusCode == http.StatusNotFound {
-				c.JSON(200, &gatewayResponse{
-					Code: -1,
-					Msg:  "404 not found",
-				})
-				return
-			}
-
-			var reader io.ReadCloser
-			switch response.Header.Get("Content-Encoding") {
-			case "gzip":
-				reader, err = gzip.NewReader(response.Body)
-				if err != nil {
-					response.Body.Close()
-					c.JSON(200, &gatewayResponse{
-						Code: -1,
-						Msg:  "failed to unzip upstream response",
-					})
-					return
-				}
-			default:
-				reader = response.Body
-			}
-			defer reader.Close()
-
-			bodyBytes, err := ioutil.ReadAll(reader)
-			if err != nil {
-				c.JSON(200, &gatewayResponse{
-					Code: -1,
-					Msg:  "failed to read response bytes",
-				})
-				return
-			}
-
-			var upstreamResponse upstreamServiceResponse
-			if err = json.Unmarshal(bodyBytes, &upstreamResponse); err != nil {
-				c.JSON(200, &gatewayResponse{
-					Code: -1,
-					Msg:  "failed to unmarshal upstream response: " + err.Error(),
-				})
-				return
-			}
-
-			c.JSON(200, &gatewayResponse{
-				Code:    0,
-				Msg:     "success",
-				SubCode: upstreamResponse.Code,
-				SubMsg:  upstreamResponse.Msg,
-				Data:    upstreamResponse.Data,
-			})
+			c.JSON(200, controller.parseUpstreamResponse(response))
 		})
+	}
+}
+
+func (controller *GatewayController) parseUpstreamResponse(response *http.Response) *gatewayResponse {
+	if response.StatusCode == http.StatusNotFound {
+		response.Body.Close()
+		return &gatewayResponse{
+			Code:    0,
+			Msg:     "success",
+			SubCode: 404,
+			SubMsg:  "not found",
+		}
+	}
+
+	var reader io.ReadCloser
+	switch response.Header.Get("Content-Encoding") {
+	case "gzip":
+		var err error
+		reader, err = gzip.NewReader(response.Body)
+		if err != nil {
+			response.Body.Close()
+			return &gatewayResponse{
+				Code: -1,
+				Msg:  "failed to unzip upstream response",
+			}
+		}
+	default:
+		reader = response.Body
+	}
+	defer reader.Close()
+
+	bodyBytes, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return &gatewayResponse{
+			Code: -1,
+			Msg:  "failed to read response bytes",
+		}
+	}
+
+	var upstreamResponse upstreamServiceResponse
+	if err = json.Unmarshal(bodyBytes, &upstreamResponse); err != nil {
+		return &gatewayResponse{
+			Code: -1,
+			Msg:  "failed to unmarshal upstream response: " + err.Error(),
+		}
+	}
+
+	return &gatewayResponse{
+		Code:    0,
+		Msg:     "success",
+		SubCode: upstreamResponse.Code,
+		SubMsg:  upstreamResponse.Msg,
+		Data:    upstreamResponse.Data,
 	}
 }
