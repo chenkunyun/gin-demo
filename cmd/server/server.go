@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"gin-demo/pkg/logger"
+	"gin-demo/pkg/util/logger"
 	v1 "gin-demo/web/api/v1"
 	"github.com/gin-gonic/gin"
 	"log"

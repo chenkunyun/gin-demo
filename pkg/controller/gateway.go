@@ -3,9 +3,9 @@ package controller
 import (
 	"compress/gzip"
 	"context"
-	"gin-demo/pkg/springcloud"
+	"gin-demo/pkg/util/jsonlib"
+	"gin-demo/pkg/util/springcloud"
 	"github.com/gin-gonic/gin"
-	jsoniter "github.com/json-iterator/go"
 	"io"
 	"io/ioutil"
 	"net"
@@ -14,8 +14,6 @@ import (
 	"strconv"
 	"time"
 )
-
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type GatewayController struct {
 	ribbon     *springcloud.Ribbon
@@ -157,7 +155,7 @@ func (controller *GatewayController) parseUpstreamResponse(response *http.Respon
 	}
 
 	var upstreamResponse upstreamServiceResponse
-	if err = json.Unmarshal(bodyBytes, &upstreamResponse); err != nil {
+	if err = jsonlib.Json.Unmarshal(bodyBytes, &upstreamResponse); err != nil {
 		return &gatewayResponse{
 			Code: -1,
 			Msg:  "failed to unmarshal upstream response: " + err.Error(),

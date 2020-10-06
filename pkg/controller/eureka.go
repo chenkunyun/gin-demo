@@ -2,7 +2,7 @@ package controller
 
 import (
 	"errors"
-	"gin-demo/pkg/springcloud"
+	"gin-demo/pkg/util/springcloud"
 	"github.com/gin-gonic/gin"
 )
 

@@ -3,7 +3,7 @@ package springcloud
 import (
 	"compress/gzip"
 	"context"
-	jsoniter "github.com/json-iterator/go"
+	"gin-demo/pkg/util/jsonlib"
 	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
@@ -13,8 +13,6 @@ import (
 	"sync"
 	"time"
 )
-
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type ApplicationType map[string][]ApplicationInstanceDto
 
@@ -275,7 +273,7 @@ func (e *Eureka) doGetApplications(baseUrl string) (ApplicationType, error) {
 		return nil, errors.Errorf("error while reading body:%s", err.Error())
 	}
 
-	err = json.Unmarshal(bodyBytes, &application)
+	err = jsonlib.Json.Unmarshal(bodyBytes, &application)
 	if err != nil {
 		return nil, errors.Errorf("error while unmarshalling body:%s", err.Error())
 	}
