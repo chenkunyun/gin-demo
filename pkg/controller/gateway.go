@@ -104,12 +104,25 @@ func (controller *GatewayController) Handle(r *gin.Engine) {
 				return
 			}
 
+			request.Header = c.Request.Header
+
 			response, err := controller.httpClient.Do(request)
 			if err != nil {
 				c.JSON(200, &gatewayResponse{
 					Code: -1,
 					Msg:  "failed to access service:" + err.Error(),
 				})
+				return
+			}
+
+			if preserveBody := response.Header.Get("x-preserve-body"); preserveBody != "" {
+				extraHeader := make(map[string]string)
+				for headerName, headerValues := range response.Header {
+					if len(headerValues) > 0 {
+						extraHeader[headerName] = headerValues[0]
+					}
+				}
+				c.DataFromReader(response.StatusCode, response.ContentLength, response.Header.Get("content-length"), response.Body, extraHeader)
 				return
 			}
 
@@ -155,10 +168,12 @@ func (controller *GatewayController) parseUpstreamResponse(response *http.Respon
 	}
 
 	var upstreamResponse upstreamServiceResponse
-	if err = jsonlib.Json.Unmarshal(bodyBytes, &upstreamResponse); err != nil {
+	if err = jsonlib.Unmarshal(bodyBytes, &upstreamResponse); err != nil {
 		return &gatewayResponse{
-			Code: -1,
-			Msg:  "failed to unmarshal upstream response: " + err.Error(),
+			Code:    -1,
+			Msg:     "failed to unmarshal upstream response: " + err.Error(),
+			SubCode: -1,
+			SubMsg:  string(bodyBytes),
 		}
 	}
 

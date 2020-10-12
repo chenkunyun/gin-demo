@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gin-demo/pkg/util/logger"
 	v1 "gin-demo/web/api/v1"
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
@@ -31,9 +32,13 @@ func main() {
 
 	logger.SetGlobalLogger(newLogger)
 
+	//gin.SetMode(gin.ReleaseMode)
+
 	r := gin.New()
 	r.Use(logger.GinLogger(newLogger))
 	r.Use(logger.GinRecovery(newLogger, true))
+
+	pprof.Register(r, "debug/pprof")
 
 	api := &v1.Api{}
 	api.Register(r)

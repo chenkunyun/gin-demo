@@ -273,7 +273,7 @@ func (e *Eureka) doGetApplications(baseUrl string) (ApplicationType, error) {
 		return nil, errors.Errorf("error while reading body:%s", err.Error())
 	}
 
-	err = jsonlib.Json.Unmarshal(bodyBytes, &application)
+	err = jsonlib.Unmarshal(bodyBytes, &application)
 	if err != nil {
 		return nil, errors.Errorf("error while unmarshalling body:%s", err.Error())
 	}
