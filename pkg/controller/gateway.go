@@ -6,6 +6,8 @@ import (
 	"gin-demo/pkg/util/jsonlib"
 	"gin-demo/pkg/util/springcloud"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"io"
 	"io/ioutil"
 	"net"
@@ -13,6 +15,28 @@ import (
 	"net/url"
 	"strconv"
 	"time"
+)
+
+var (
+	httpRequestTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "http_request_total",
+		Help: "The total number of request received",
+	})
+
+	httpRequestForwardSuccess = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "http_request_forward_success_total",
+		Help: "The total number of successfully forwarded request",
+	})
+
+	httpRequestForwardFail = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "http_request_forward_fail_total",
+		Help: "The total number of unsuccessfully forwarded request",
+	})
+
+	httpRequestPanic = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "http_request_panic_total",
+		Help: "The total number of requests encountering panic",
+	})
 )
 
 type GatewayController struct {
@@ -75,6 +99,13 @@ func (controller *GatewayController) Handle(r *gin.Engine) {
 	gatewayGroup := r.Group("gateway")
 	{
 		gatewayGroup.Any("/:appId/:uri", func(c *gin.Context) {
+			defer func() {
+				if err := recover(); err != nil {
+					httpRequestPanic.Inc()
+				}
+			}()
+
+			httpRequestTotal.Inc()
 			appId := c.Param("appId")
 			uri := c.Param("uri")
 			instance, exist := controller.ribbon.GetApplicationInstance(appId)
@@ -83,6 +114,7 @@ func (controller *GatewayController) Handle(r *gin.Engine) {
 					Code: -1,
 					Msg:  "service not found",
 				})
+				httpRequestForwardFail.Inc()
 				return
 			}
 
@@ -101,6 +133,7 @@ func (controller *GatewayController) Handle(r *gin.Engine) {
 					Code: -1,
 					Msg:  "failed to create request:" + err.Error(),
 				})
+				httpRequestForwardFail.Inc()
 				return
 			}
 
@@ -112,8 +145,11 @@ func (controller *GatewayController) Handle(r *gin.Engine) {
 					Code: -1,
 					Msg:  "failed to access service:" + err.Error(),
 				})
+				httpRequestForwardFail.Inc()
 				return
 			}
+
+			httpRequestForwardSuccess.Inc()
 
 			if preserveBody := response.Header.Get("x-preserve-body"); preserveBody != "" {
 				extraHeader := make(map[string]string)

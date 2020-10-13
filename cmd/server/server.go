@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"gin-demo/pkg/util/ginprom"
 	"gin-demo/pkg/util/logger"
 	v1 "gin-demo/web/api/v1"
 	"github.com/gin-contrib/pprof"
@@ -39,6 +40,8 @@ func main() {
 	r.Use(logger.GinRecovery(newLogger, true))
 
 	pprof.Register(r, "debug/pprof")
+
+	ginprom.Register(r, "/metrics")
 
 	api := &v1.Api{}
 	api.Register(r)
